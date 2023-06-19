@@ -777,7 +777,7 @@ void CmndStatus(void)
     int len = 2;
     char strn[53];
 
-    memcpy(raw_t, fromhex_rddl(raw), len);
+    memcpy(raw_t, fromhex2(raw), len);
     int r;
     r = base58_encode_check(raw_t, len, HASHER_SHA2, strn, sizeof(strn));
 

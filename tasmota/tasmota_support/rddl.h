@@ -17,8 +17,8 @@
 #define ETHEREUM_VERSION_PUBLIC 0x0488b21e
 #define ETHEREUM_VERSION_PRIVATE 0x0488ade4
 
-const uint8_t *fromhex_rddl(const char *str);
-void tohex_rddl(char *hexbuf, uint8_t *str, int strlen);
+const uint8_t *fromhex2(const char *str);
+void tohex2(char *hexbuf, uint8_t *str, int strlen);
 
 const char* getMnemonic( char* pMnemonic, size_t len);
 const char* setMnemonic( char* pMnemonic, size_t len );

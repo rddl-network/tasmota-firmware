@@ -36,7 +36,7 @@ char* g_mnemonic = NULL;
 
 static bool bIsDynamicallyAllocated = false;
 
-const uint8_t *fromhex_rddl(const char *str) {
+const uint8_t *fromhex2(const char *str) {
   static uint8_t buf[FROMHEX_MAXLEN];
   size_t len = strlen(str) / 2;
   if (len > FROMHEX_MAXLEN) len = FROMHEX_MAXLEN;
@@ -55,7 +55,7 @@ const uint8_t *fromhex_rddl(const char *str) {
 }
 
 
-void tohex(char *hexbuf, uint8_t *str, int strlen){
+void tohex2(char *hexbuf, uint8_t *str, int strlen){
    // char hexbuf[strlen];
     for (int i = 0 ; i < strlen/2 ; i++) {
         sprintf(&hexbuf[2*i], "%02X", str[i]);
@@ -106,9 +106,9 @@ int validateSignature() {
   const char sig_str[] = "F551CDF6156FD2A8CC29428B61FDB9F5224928D5A5937E38F36D2D566C11B1DF13CD12E3BA2DAE6A33F091C549A5ADE537A5F07121AA1F4D4286B51260B228DE";
 
 
-  memcpy(pub_key, fromhex_rddl(pub_key_str), 33);
-  memcpy(hash, fromhex_rddl(hash_str), 32);
-  memcpy(computed_sig, fromhex_rddl(sig_str), 64);
+  memcpy(pub_key, fromhex2(pub_key_str), 33);
+  memcpy(hash, fromhex2(hash_str), 32);
+  memcpy(computed_sig, fromhex2(sig_str), 64);
 
   int verified = ecdsa_verify_digest(curve, pub_key, computed_sig, hash);
   return verified;
@@ -160,9 +160,9 @@ bool SignDataHash(int json_data_start, int current_length, const char* data_str,
     int verified = ecdsa_verify_digest(curve, pub_key, computed_sig, hash);
 
     // prepare and convert outputs to hex-strings
-    tohex_rddl( pubkey_out, pub_key, 68);
-    tohex_rddl( sig_out, computed_sig, 130);
-    tohex_rddl( hash_out, hash, 66);
+    tohex2( pubkey_out, pub_key, 68);
+    tohex2( sig_out, computed_sig, 130);
+    tohex2( hash_out, hash, 66);
 
     return verified;
 }
