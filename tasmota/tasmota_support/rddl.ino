@@ -81,16 +81,22 @@ const char* setMnemonic( char* pMnemonic, size_t len )
 {
   uint8_t seed[64] = {0};
 
-  mnemonic_to_seed(pMnemonic, "TREZOR", seed, 0);
-  if( g_mnemonic && bIsDynamicallyAllocated )
+  if( mnemonic_check( pMnemonic ) )
   {
-    delete g_mnemonic;
-  }
-  g_mnemonic= new char[len];
-  memcpy_P(g_mnemonic,pMnemonic, len);
-  bIsDynamicallyAllocated = true;
+    mnemonic_to_seed(pMnemonic, "TREZOR", seed, 0);
+    if( g_mnemonic && bIsDynamicallyAllocated )
+    {
+      delete g_mnemonic;
+    }
+    g_mnemonic= new char[len+1];
+    memset( g_mnemonic,0, len+1 );
+    memcpy_P(g_mnemonic,pMnemonic, len);
+    bIsDynamicallyAllocated = true;
 
-  return (const char*)g_mnemonic;
+    return (const char*)g_mnemonic;
+  }
+  else
+    return "";
 }
 
 int validateSignature() {
