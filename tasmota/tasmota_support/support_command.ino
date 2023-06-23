@@ -18,9 +18,9 @@
 */
 
 #include <string.h>
-#include "trezor-crypto/hasher.h"
-#include "trezor-crypto/base58.h"
-#include "tasmota_support/rddl.h"
+#include "hasher.h"
+#include "base58.h"
+#include "rddl.h"
 
 
 
