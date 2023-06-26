@@ -129,9 +129,9 @@ bool SignDataHash(int json_data_start, int current_length, const char* data_str,
   HDNode node2;
   SHA256_CTX ctx;
   const ecdsa_curve *curve = &secp256k1;
-  printf("%s\n", g_mnemonic);
+  
   mnemonic_to_seed(g_mnemonic, "TREZOR", seed, 0);
-// test vector from https://en.bitcoin.it/wiki/BIP_0032_TestVectors for Elliptic Curves SECP256K1
+
   hdnode_from_seed( seed, 64, SECP256K1_NAME, &node2);
   hdnode_fill_public_key(&node2);
   memcpy(priv_key, node2.private_key, 32);
