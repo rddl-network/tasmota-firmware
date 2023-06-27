@@ -24,6 +24,7 @@
  * [tasmota-sensors.bin]
  * Provide an image with useful supported sensors enabled
 \*********************************************************************************************/
+#define USE_DRV_RDDL_NETWORK
 
 #ifdef FIRMWARE_SENSORS
 
@@ -254,6 +255,7 @@
 #define USE_LOX_O2                               // Add support for LuminOx LOX O2 Sensor (+0k8 code)
 #undef DEBUG_THEO                                // Disable debug code
 #undef USE_DEBUG_DRIVER                          // Disable debug code
+#define USE_DRV_RDDL_NETWORK
 #endif  // FIRMWARE_SENSORS
 
 /*********************************************************************************************\
@@ -1006,7 +1008,7 @@
 /*********************************************************************************************\
  * Post-configuration for IRremoteESP8266 protocol selection
 \*********************************************************************************************/
-
+#define USE_DRV_RDDL_NETWORK
 // IR_SEND has two mode: minimal or full (USE_IR_REMOTE_FULL)
 #ifdef USE_IR_REMOTE_FULL
   // Enable all protocols except PRONTO

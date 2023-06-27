@@ -17,8 +17,6 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define USE_DRV_RDDL_NETWORK
-
 #ifdef USE_DRV_RDDL_NETWORK
 /*********************************************************************************************\
  * Settings to participate in the RDDL Network
@@ -30,14 +28,18 @@
 
 #include "rddl.h"
 
+#ifdef USE_WEBCLIENT_HTTPS
+#warning **** USE_WEBCLIENT_HTTPS is enabled ****
 
+#endif
 #define XDRV_129               129
 
 #define DRV_DEMO_MAX_DRV_TEXT  16
 //#define RDDL_NETWORK_15_MINUTES_IN_MS  (15*60*1000)
-#define RDDL_NETWORK_NOTARIZATION_TIMER_IN_SECONDS (120)
+#define RDDL_NETWORK_NOTARIZATION_TIMER_IN_SECONDS (30)
 
-const uint32_t DRV_DEMO_VERSION = 0x01010101;  // Latest driver version (See settings deltas below)
+//#include <HT#TPClientLight.h>
+
 
 uint32_t counted_seconds = 0;
 
@@ -97,36 +99,82 @@ void RDDLNetworkSettingsSave(void) {
 void getNotarizationMessage(){
   MqttShowSensor(false);
 }
+
 void signRDDLNetworkMessage(int start_position){
     char pubkey_out[68] = {0};
     char sig_out[130] = {0};
     char hash_out[66] = {0};
     int current_position  = ResponseLength();
     const char* data_str = TasmotaGlobal.mqtt_data.c_str();
-    SignDataHash(start_position, current_position, data_str, pubkey_out, sig_out, hash_out);
+    //SignDataHash(start_position, current_position, data_str, pubkey_out, sig_out, hash_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "EnergyHash", hash_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "EnergySig", sig_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "PublicKey", pubkey_out);
 }
+
+void getCIDString( char* cidbuffer, size_t buffersize, const char* message ){
+
+}
+
+void getEdDSAChallenge(){
+  /*
+  HTTPClientLight http;
+
+  http.begin("https://cid-resolver.rddl.io/auth");
+  http.addHeader("Content-Type", "application/json");
+
+  int httpResponseCode = http.GET();
+
+  if (httpResponseCode > 0) {
+    String payload = http.getString();
+    Serial.println(httpResponseCode);
+    Serial.println(payload);
+  }
+  else {
+    Serial.println("Error on HTTP request");
+  }
+
+  http.end();
+  */
+}
+void getAuthToken(){
+  getEdDSAChallenge();
+}
+
 void sendNotarizationMessage(){
 
 }
 
+#define CID_BUFFER_SIZE 256
+
 void RDDLNotarize(){
+  //char cidbuffer[CID_BUFFER_SIZE] = {0};
+
+  // create notarization message
   Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS8_POWER "\":"));
   int start_position = ResponseLength();
   getNotarizationMessage();
   signRDDLNetworkMessage(start_position);
   ResponseJsonEnd();
+  //getAuthToken();
+  // compute CID of the message
+  //getCIDString( cidbuffer, CID_BUFFER_SIZE, TasmotaGlobal.mqtt_data.c_str() );
+  
+  // upload message to cid-resolver
+  // auth to cid-resolver
+  // send notarize message to cid-resolver
+
+  // notarize message vi planetmint
+    
   sendNotarizationMessage();
 }
 
 void RDDLNetworkNotarizationScheduler(){
   ++counted_seconds;
-  if( counted_seconds >= RDDL_NETWORK_NOTARIZATION_TIMER_IN_SECONDS )
+  if( counted_seconds >= RDDL_NETWORK_NOTARIZATION_TIMER_IN_SECONDS)
   {
     counted_seconds=0;
-    RDDLNotarize();
+    //RDDLNotarize();
   }
 }
 
