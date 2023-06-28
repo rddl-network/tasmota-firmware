@@ -16,7 +16,7 @@
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+#define USE_DRV_RDDL_NETWORK
 #ifdef USE_DRV_RDDL_NETWORK
 /*********************************************************************************************\
  * Settings to participate in the RDDL Network
@@ -30,8 +30,8 @@
 
 #ifdef USE_WEBCLIENT_HTTPS
 #warning **** USE_WEBCLIENT_HTTPS is enabled ****
-
 #endif
+
 #define XDRV_129               129
 
 #define DRV_DEMO_MAX_DRV_TEXT  16
@@ -92,7 +92,7 @@ void RDDLNetworkSettingsLoad(bool erase) {
 }
 
 void RDDLNetworkSettingsSave(void) {
-  // Called from FUNC_SAVE_SETTINGS every SaveData second and at restart
+  // Called from FUNC_SAhttp://tasmota/VE_SETTINGS every SaveData second and at restart
 
 }
 
@@ -106,7 +106,7 @@ void signRDDLNetworkMessage(int start_position){
     char hash_out[66] = {0};
     int current_position  = ResponseLength();
     const char* data_str = TasmotaGlobal.mqtt_data.c_str();
-    //SignDataHash(start_position, current_position, data_str, pubkey_out, sig_out, hash_out);
+    SignDataHash(start_position, current_position, data_str, pubkey_out, sig_out, hash_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "EnergyHash", hash_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "EnergySig", sig_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "PublicKey", pubkey_out);
@@ -116,11 +116,12 @@ void getCIDString( char* cidbuffer, size_t buffersize, const char* message ){
 
 }
 
-void getEdDSAChallenge(){
-  /*
+String getEdDSAChallenge( const char* public_key ){
+  String challenge;
   HTTPClientLight http;
 
-  http.begin("https://cid-resolver.rddl.io/auth");
+  http.begin("https://cid-resolver.rddl.io/auth/?public_key=asdkfj%C3%B6alskdjf%C3%B6aldskjf");
+  //http.begin("http://node1-rddl-testnet.twilightparadox.com:9984/");
   http.addHeader("Content-Type", "application/json");
 
   int httpResponseCode = http.GET();
@@ -129,16 +130,30 @@ void getEdDSAChallenge(){
     String payload = http.getString();
     Serial.println(httpResponseCode);
     Serial.println(payload);
+    
+    int start = payload.indexOf("{");
+    int end = payload.indexOf("}");
+    //start +14 to skip  {"challenge":"
+    //end -2 to skip "}
+    challenge = payload.substring(start+14, end-2);
+    ResponseAppend_P(PSTR("Payload received %s}"), challenge.c_str());
+
   }
   else {
     Serial.println("Error on HTTP request");
+    ResponseAppend_P(PSTR("Error on HTTPS request"));
   }
 
   http.end();
-  */
+  return challenge;
 }
 void getAuthToken(){
-  getEdDSAChallenge();
+  char* public_key = NULL;
+  // get public key
+  String challenge = getEdDSAChallenge(public_key);
+  //sign EdDSA challenge
+  //send signed challenge to  server, get JWT
+
 }
 
 void sendNotarizationMessage(){

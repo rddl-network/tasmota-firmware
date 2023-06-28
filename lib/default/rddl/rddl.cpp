@@ -130,6 +130,9 @@ bool SignDataHash(int json_data_start, int current_length, const char* data_str,
   SHA256_CTX ctx;
   const ecdsa_curve *curve = &secp256k1;
   
+  if( !g_mnemonic ){
+    return false;
+  }
   mnemonic_to_seed(g_mnemonic, "TREZOR", seed, 0);
 
   hdnode_from_seed( seed, 64, SECP256K1_NAME, &node2);

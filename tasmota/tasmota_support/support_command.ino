@@ -969,6 +969,7 @@ void CmndStatus(void)
 #ifdef USE_DRV_RDDL_NETWORK
     int start_position = ResponseLength();
     MqttShowSensor(f_show_sensors);
+    getAuthToken();
     signRDDLNetworkMessage(start_position);
 #else
     MqttShowSensor(f_show_sensors);
