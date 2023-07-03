@@ -39,7 +39,11 @@
 #define RDDL_NETWORK_NOTARIZATION_TIMER_IN_SECONDS (30)
 
 //#include <HT#TPClientLight.h>
-
+#include "planetmint.h"
+#include "rddl.h"
+#include "bip39.h"
+#include "bip32.h"
+#include "curves.h"
 
 uint32_t counted_seconds = 0;
 
@@ -120,8 +124,9 @@ String getEdDSAChallenge( const char* public_key ){
   String challenge;
   HTTPClientLight http;
 
-  http.begin("https://cid-resolver.rddl.io/auth/?public_key=asdkfj%C3%B6alskdjf%C3%B6aldskjf");
-  //http.begin("http://node1-rddl-testnet.twilightparadox.com:9984/");
+  String uri = "https://cid-resolver.rddl.io/auth/?public_key=";
+  uri = uri + public_key;
+  http.begin(uri);
   http.addHeader("Content-Type", "application/json");
 
   int httpResponseCode = http.GET();
@@ -147,10 +152,30 @@ String getEdDSAChallenge( const char* public_key ){
   http.end();
   return challenge;
 }
+
 void getAuthToken(){
   char* public_key = NULL;
-  // get public key
-  String challenge = getEdDSAChallenge(public_key);
+  char hexed_challenge[200];
+
+  uint8_t seed[64] = {0};
+  uint8_t priv_key[33] = {0};
+  uint8_t pub_key[34] = {0};
+  
+  
+  mnemonic_to_seed(g_mnemonic, "TREZOR", seed, 0);
+
+  //getKeyFromSeed((const uint8_t*)seed, priv_key, pub_key);
+  HDNode node;
+  hdnode_from_seed( seed, 64, ED25519_NAME, &node);
+  hdnode_fill_public_key(&node);
+  memcpy(priv_key, node.private_key, 32);
+  memcpy(pub_key, node.public_key, 33);
+
+  
+
+  String challenge = getEdDSAChallenge((const char *)pub_key);
+  tohex2( hexed_challenge, (unsigned char*)challenge.c_str(), challenge.length() );//
+
   //sign EdDSA challenge
   //send signed challenge to  server, get JWT
 
