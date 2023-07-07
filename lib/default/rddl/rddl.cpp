@@ -14,10 +14,10 @@
 #include "blake2s.h"
 #include "curves.h"
 #include "ecdsa.h"
-#include "ed25519-donna/ed25519-donna.h"
-#include "ed25519-donna/curve25519-donna-scalarmult-base.h"
-#include "ed25519-donna/ed25519-keccak.h"
-#include "ed25519-donna/ed25519.h"
+#include "ed25519-donna.h"
+#include "curve25519-donna-scalarmult-base.h"
+#include "ed25519-keccak.h"
+#include "ed25519.h"
 #include "hmac.h"
 #include "memzero.h"
 #include "nist256p1.h"
@@ -54,14 +54,15 @@ const uint8_t *fromhex2(const char *str) {
   return buf;
 }
 
-
-void tohex2(char *hexbuf, uint8_t *str, int strlen){
+// convert byte array  hexadeciaml values of length strlen into string represetning the hexv values (thus doubling the size)
+void toHexString(char *hexbuf, uint8_t *str, int strlen){
    // char hexbuf[strlen];
     for (int i = 0 ; i < strlen/2 ; i++) {
         sprintf(&hexbuf[2*i], "%02X", str[i]);
     }
   hexbuf[strlen-2] = '\0';
 }
+
 
 const char* getMnemonic()
 {
@@ -98,6 +99,26 @@ const char* setMnemonic( char* pMnemonic, size_t len )
   }
   else
     return "";
+}
+
+
+
+const char* getMnemonicFromSeed( const uint8_t* seed, size_t length )
+{
+  // Generate a 12-word mnemonic phrase from the master seed
+  const char * mnemonic_phrase = mnemonic_from_data(seed, length);
+
+  printf("%s\n", mnemonic_phrase);
+  return mnemonic_phrase;
+}
+
+bool getSeedFromMnemonic( const char* pMnemonic, size_t len, uint8_t* seedbuffer )
+{
+  if( !mnemonic_check( pMnemonic ) )
+    return false;
+  
+  mnemonic_to_seed(pMnemonic, "TREZOR", seedbuffer, NULL);
+  return true;  
 }
 
 int validateSignature() {
@@ -154,9 +175,9 @@ bool SignDataHash(int json_data_start, int current_length, const char* data_str,
   int verified = ecdsa_verify_digest(curve, pub_key, signature, hash);
 
   // prepare and convert outputs to hex-strings
-  tohex2( pubkey_out, pub_key, 68);
-  tohex2( sig_out, signature, 130);
-  tohex2( hash_out, hash, 66);
+  toHexString( pubkey_out, pub_key, 68);
+  toHexString( sig_out, signature, 130);
+  toHexString( hash_out, hash, 66);
 
   return verified;
 }
