@@ -233,22 +233,22 @@ String registerCID( const char* jwt_token, const char* url, const char* cid){
   return result;
 }
 
-static uint8_t secret_seed[64] ={0};
-const uint8_t* getSeed(){
-  esp_fill_random( (void*)secret_seed, 64);
-  return (const uint8_t*)secret_seed;
-}
-const char* setSeedByMenmonic(const char* mnemonic, size_t length){
-  if ( getSeedFromMnemonic(mnemonic, length,secret_seed) )
-    return mnemonic;
-  else
-    return "";
-}
+// static uint8_t secret_seed[64] ={0};
+// const uint8_t* getSeed(){
+//   esp_fill_random( (void*)secret_seed, 64);
+//   return (const uint8_t*)secret_seed;
+// }
+// const char* setSeedByMenmonic(const char* mnemonic, size_t length){
+//   if ( getSeedFromMnemonic(mnemonic, length,secret_seed) )
+//     return mnemonic;
+//   else
+//     return "";
+//}
 
 void getAuthToken(){
   char* public_key = NULL;
   size_t b58_size = 80;
-  uint8_t seed[64] = {0};
+  uint8_t seed[SEED_SIZE] = {0};
   uint8_t priv_key[33] = {0};
   uint8_t pub_key[34] = {0};
   uint8_t b58_pub_key[b58_size] = {0};
@@ -257,13 +257,14 @@ void getAuthToken(){
 
 
   if( !g_mnemonic )
-    return;
-  ResponseAppend_P(PSTR("Mnemonic %s\n"), g_mnemonic);
-  //getKeyFromSeed((const uint8_t*)seed, priv_key, pub_key);
+     return;
+  mnemonic_to_seed(g_mnemonic, "TREZOR", seed, 0);
+  
+  // ResponseAppend_P(PSTR("Mnemonic %s\n"), g_mnemonic);
+  ////getKeyFromSeed((const uint8_t*)seed, priv_key, pub_key);
   HDNode node;
-  if( !hdnode_from_seed( seed, 64, ED25519_NAME, &node))
+  if( !hdnode_from_seed( seed, SEED_SIZE, ED25519_NAME, &node))
     return;
-  ResponseAppend_P(PSTR("Seed: %s\n"), seed);
   hdnode_private_ckd_prime(&node, 0);
   hdnode_private_ckd_prime(&node, 1);
   hdnode_fill_public_key(&node);

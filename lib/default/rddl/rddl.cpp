@@ -31,8 +31,10 @@
 #include "sha3.h"
 
 #include "rddl.h"
+#include "esp_random.h"
 
 char* g_mnemonic = NULL;
+uint8_t secret_seed[SEED_SIZE] = {0};
 
 static bool bIsDynamicallyAllocated = false;
 
@@ -67,38 +69,35 @@ void toHexString(char *hexbuf, uint8_t *str, int strlen){
 const char* getMnemonic()
 {
   // Generate a random master seed
-  uint8_t master_seed[32];
-  for( int i = 0; i< 32; ++i )
-    master_seed[i]= random();
-
+  uint8_t master_seed[SEED_SIZE];
+  esp_fill_random( master_seed, SEED_SIZE_DEFAULT);
   // Generate a 12-word mnemonic phrase from the master seed
-  const char * mnemonic_phrase = mnemonic_from_data(master_seed, 32);
+  const char * mnemonic_phrase = mnemonic_from_data(master_seed, SEED_SIZE_DEFAULT);
 
-  printf("%s\n", mnemonic_phrase);
   g_mnemonic = (char*) mnemonic_phrase;
+  // printf("%s\n", mnemonic_phrase);
   return mnemonic_phrase;
 }
 
 const char* setMnemonic( char* pMnemonic, size_t len )
 {
-  uint8_t seed[64] = {0};
+  uint8_t seed[SEED_SIZE] = {0};
 
-  if( mnemonic_check( pMnemonic ) )
-  {
-    mnemonic_to_seed(pMnemonic, "TREZOR", seed, 0);
-    if( g_mnemonic && bIsDynamicallyAllocated )
-    {
-      delete g_mnemonic;
-    }
-    g_mnemonic= new char[len+1];
-    memset( g_mnemonic,0, len+1 );
-    memcpy_P(g_mnemonic,pMnemonic, len);
-    bIsDynamicallyAllocated = true;
-
-    return (const char*)g_mnemonic;
-  }
-  else
+  if( !mnemonic_check( pMnemonic ) )
     return "";
+
+  mnemonic_to_seed(pMnemonic, "TREZOR", seed, 0);
+  if( g_mnemonic && bIsDynamicallyAllocated )
+  {
+    delete g_mnemonic;
+  }
+  g_mnemonic= new char[len+1];
+  memset( g_mnemonic,0, len+1 );
+  memcpy_P(g_mnemonic,pMnemonic, len);
+  bIsDynamicallyAllocated = true;
+
+  return (const char*)g_mnemonic;
+    
 }
 
 
@@ -156,7 +155,7 @@ bool SignDataHash(int json_data_start, int current_length, const char* data_str,
   }
   mnemonic_to_seed(g_mnemonic, "TREZOR", seed, 0);
 
-  hdnode_from_seed( seed, 64, SECP256K1_NAME, &node2);
+  hdnode_from_seed( seed, SEED_SIZE, SECP256K1_NAME, &node2);
   hdnode_fill_public_key(&node2);
   memcpy(priv_key, node2.private_key, 32);
   memcpy(pub_key, node2.public_key, 33);
