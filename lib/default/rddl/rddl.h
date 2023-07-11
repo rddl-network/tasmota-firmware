@@ -17,7 +17,6 @@
 #define ETHEREUM_VERSION_PUBLIC 0x0488b21e
 #define ETHEREUM_VERSION_PRIVATE 0x0488ade4
 
-// extern char* g_mnemonic;
 #define SEED_SIZE 64
 #define SEED_SIZE_MNEMONIC_TO_SEED 16
 
@@ -27,7 +26,7 @@ const uint8_t *fromHexString(const char *str);
 void toHexString(char *hexbuf, uint8_t *str, int strlen);
 
 const char* getMnemonic();
-const char* setMnemonic( char* pMnemonic, size_t len );
+const char* setSeed( char* pMnemonic, size_t len );
 
 const char* getMnemonicFromSeed( const uint8_t* seed, size_t length );
 bool getSeedFromMnemonic( const char* pMnemonic, size_t len, uint8_t* seedbuffer );

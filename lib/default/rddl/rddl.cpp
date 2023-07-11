@@ -62,39 +62,23 @@ void toHexString(char *hexbuf, uint8_t *str, int strlen){
   hexbuf[strlen-2] = '\0';
 }
 
-
 const char* getMnemonic()
 {
 
   esp_fill_random( secret_seed, SEED_SIZE_MNEMONIC_TO_SEED);
   // Generate a 12-word mnemonic phrase from the master seed
   const char * mnemonic_phrase = mnemonic_from_data(secret_seed, SEED_SIZE_MNEMONIC_TO_SEED);
-  // g_mnemonic = (char*) mnemonic_phrase;
   return mnemonic_phrase;
 }
 
-const char* setMnemonic( char* pMnemonic, size_t len )
+const char* setSeed( char* pMnemonic, size_t len )
 {
-  //uint8_t seed[SEED_SIZE] = {0};
-
   if( !mnemonic_check( pMnemonic ) )
     return "";
 
   mnemonic_to_seed(pMnemonic, "TREZOR", secret_seed, 0);
-  // if( g_mnemonic && bIsDynamicallyAllocated )
-  // {
-  //   delete g_mnemonic;
-  // }
-  // g_mnemonic= new char[len+1];
-  // memset( g_mnemonic,0, len+1 );
-  // memcpy_P(g_mnemonic,pMnemonic, len);
-  // bIsDynamicallyAllocated = true;
-
   return (const char*)pMnemonic;
-    
 }
-
-
 
 const char* getMnemonicFromSeed( const uint8_t* seed, size_t length )
 {
