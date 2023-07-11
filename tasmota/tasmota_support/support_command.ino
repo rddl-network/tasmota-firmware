@@ -728,20 +728,14 @@ void CmndMemonic(void)
   if( XdrvMailbox.data_len )
   {
     mnemonic = setMnemonic( XdrvMailbox.data, XdrvMailbox.data_len );
-    //mnemonic = setSeedByMenmonic(XdrvMailbox.data, XdrvMailbox.data_len);
   }
   else
   {
     mnemonic = getMnemonic();
-    //const uint8_t* seed = getSeed();
-    //mnemonic = getMnemonicFromSeed(seed,64);
   }
+  storeSeed();
   Response_P(S_JSON_COMMAND_SVALUE,D_CMND_MNEMONIC,mnemonic );
-  /*if( !XdrvMailbox.data_len )
-  {
-    int len = strlen(mnemonic);
-    memset( (void*)mnemonic, 0, len);
-  }*/
+
   CmndStatusResponse(0);
   ResponseClear();
 

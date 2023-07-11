@@ -108,13 +108,58 @@ void getNotarizationMessage(){
   MqttShowSensor(false);
 }
 
+void storeSeed()
+{
+  uint8_t seed_message[SEED_SIZE*2] = {0};
+  toHexString( (char*)seed_message, secret_seed, SEED_SIZE*2);
+  BrREPLRun("import persist");
+  String message = String("\"") +(const char*)seed_message + String("\"");
+  String cmd = String("persist.seed=") + message;
+  printf("store seed result: %s",  (char*)cmd.c_str());
+  BrREPLRun((char*)cmd.c_str());
+  BrREPLRun("persist.save()");
+  printf("store seed result: %s",  seed_message);
+}
+
+bool hasSeed(){
+  char result [300]= {0};
+  BrREPLRun("import persist");
+  BrREPLRunRDDL("persist.has(\"seed\")", result );
+  if( strcmp( result,"true") == 0)
+    return true;
+  else 
+    return false;
+}
+bool g_readSeed = false;
+
+uint8_t* readSeed()
+{
+  if( g_readSeed )
+    return secret_seed;
+  else if( ! hasSeed() )
+    return NULL;
+  
+  char buffer[300] = {0};
+  BrREPLRun("import persist");
+  BrREPLRunRDDL("persist.find(\"seed\")", buffer );
+  ResponseAppend_P(PSTR("HAS SEED: %s\n"), buffer);
+
+  const uint8_t * seed = fromHexString(buffer);
+  memset( secret_seed, 0, SEED_SIZE );
+  memcpy( secret_seed, seed, SEED_SIZE);
+  g_readSeed = true;
+
+  return secret_seed;
+}
+
 void signRDDLNetworkMessage(int start_position){
     char pubkey_out[68] = {0};
     char sig_out[130] = {0};
     char hash_out[66] = {0};
     int current_position  = ResponseLength();
     const char* data_str = TasmotaGlobal.mqtt_data.c_str();
-    SignDataHash(start_position, current_position, data_str, pubkey_out, sig_out, hash_out);
+    if( readSeed() != NULL )
+      SignDataHash(start_position, current_position, data_str, pubkey_out, sig_out, hash_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "EnergyHash", hash_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "EnergySig", sig_out);
     ResponseAppend_P(PSTR(",\"%s\":\"%s\""), "PublicKey", pubkey_out);
@@ -233,37 +278,20 @@ String registerCID( const char* jwt_token, const char* url, const char* cid){
   return result;
 }
 
-// static uint8_t secret_seed[64] ={0};
-// const uint8_t* getSeed(){
-//   esp_fill_random( (void*)secret_seed, 64);
-//   return (const uint8_t*)secret_seed;
-// }
-// const char* setSeedByMenmonic(const char* mnemonic, size_t length){
-//   if ( getSeedFromMnemonic(mnemonic, length,secret_seed) )
-//     return mnemonic;
-//   else
-//     return "";
-//}
-
 void getAuthToken(){
   char* public_key = NULL;
   size_t b58_size = 80;
-  uint8_t seed[SEED_SIZE] = {0};
+  //uint8_t seed[SEED_SIZE] = {0};
   uint8_t priv_key[33] = {0};
   uint8_t pub_key[34] = {0};
   uint8_t b58_pub_key[b58_size] = {0};
   unsigned char signature[65] = {0};
   
 
-
-  if( !g_mnemonic )
-     return;
-  mnemonic_to_seed(g_mnemonic, "TREZOR", seed, 0);
-  
-  // ResponseAppend_P(PSTR("Mnemonic %s\n"), g_mnemonic);
+  readSeed();
   ////getKeyFromSeed((const uint8_t*)seed, priv_key, pub_key);
   HDNode node;
-  if( !hdnode_from_seed( seed, SEED_SIZE, ED25519_NAME, &node))
+  if( !hdnode_from_seed( secret_seed, SEED_SIZE, ED25519_NAME, &node))
     return;
   hdnode_private_ckd_prime(&node, 0);
   hdnode_private_ckd_prime(&node, 1);
@@ -281,10 +309,7 @@ void getAuthToken(){
 
 
   String challenge = getEdDSAChallenge((const char *)b58_pub_key);
-  //challenge = "ce25c22581bb06841fabfa44bca29f55da7a466060166fdafed33be7b6affaf528c59f23fe10502ce0bf18fd933c15ce73de1144c1803919a0637541a260b584ee1eef85ad897cb9d5501f692e712fb11f0f00e9253a4dc8717b9252aa022ab545fa9b61ed521bc9c180c70e10927809f94f2f0eff00781142d14278c58256bb";
-   //hexed_challenge = fromhex2( hexed_challenge, (unsigned char*)challenge.c_str(), challenge.length() );
-  //size_t hexed_challenge_length = challenge.length()/2;
-  //const uint8_t * hexed_challenge = fromhex2( (char*)challenge.c_str() );
+
 
   SHA256_CTX ctx;
   uint8_t hash[SHA256_DIGEST_LENGTH+1] = {0};

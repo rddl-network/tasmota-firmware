@@ -33,12 +33,9 @@
 #include "rddl.h"
 #include "esp_random.h"
 
-char* g_mnemonic = NULL;
 uint8_t secret_seed[SEED_SIZE] = {0};
 
-static bool bIsDynamicallyAllocated = false;
-
-const uint8_t *fromhex2(const char *str) {
+const uint8_t *fromHexString(const char *str) {
   static uint8_t buf[FROMHEX_MAXLEN];
   size_t len = strlen(str) / 2;
   if (len > FROMHEX_MAXLEN) len = FROMHEX_MAXLEN;
@@ -68,35 +65,32 @@ void toHexString(char *hexbuf, uint8_t *str, int strlen){
 
 const char* getMnemonic()
 {
-  // Generate a random master seed
-  uint8_t master_seed[SEED_SIZE];
-  esp_fill_random( master_seed, SEED_SIZE_DEFAULT);
-  // Generate a 12-word mnemonic phrase from the master seed
-  const char * mnemonic_phrase = mnemonic_from_data(master_seed, SEED_SIZE_DEFAULT);
 
-  g_mnemonic = (char*) mnemonic_phrase;
-  // printf("%s\n", mnemonic_phrase);
+  esp_fill_random( secret_seed, SEED_SIZE_MNEMONIC_TO_SEED);
+  // Generate a 12-word mnemonic phrase from the master seed
+  const char * mnemonic_phrase = mnemonic_from_data(secret_seed, SEED_SIZE_MNEMONIC_TO_SEED);
+  // g_mnemonic = (char*) mnemonic_phrase;
   return mnemonic_phrase;
 }
 
 const char* setMnemonic( char* pMnemonic, size_t len )
 {
-  uint8_t seed[SEED_SIZE] = {0};
+  //uint8_t seed[SEED_SIZE] = {0};
 
   if( !mnemonic_check( pMnemonic ) )
     return "";
 
-  mnemonic_to_seed(pMnemonic, "TREZOR", seed, 0);
-  if( g_mnemonic && bIsDynamicallyAllocated )
-  {
-    delete g_mnemonic;
-  }
-  g_mnemonic= new char[len+1];
-  memset( g_mnemonic,0, len+1 );
-  memcpy_P(g_mnemonic,pMnemonic, len);
-  bIsDynamicallyAllocated = true;
+  mnemonic_to_seed(pMnemonic, "TREZOR", secret_seed, 0);
+  // if( g_mnemonic && bIsDynamicallyAllocated )
+  // {
+  //   delete g_mnemonic;
+  // }
+  // g_mnemonic= new char[len+1];
+  // memset( g_mnemonic,0, len+1 );
+  // memcpy_P(g_mnemonic,pMnemonic, len);
+  // bIsDynamicallyAllocated = true;
 
-  return (const char*)g_mnemonic;
+  return (const char*)pMnemonic;
     
 }
 
@@ -131,9 +125,9 @@ int validateSignature() {
   const char sig_str[] = "F551CDF6156FD2A8CC29428B61FDB9F5224928D5A5937E38F36D2D566C11B1DF13CD12E3BA2DAE6A33F091C549A5ADE537A5F07121AA1F4D4286B51260B228DE";
 
 
-  memcpy(pub_key, fromhex2(pub_key_str), 33);
-  memcpy(hash, fromhex2(hash_str), 32);
-  memcpy(computed_sig, fromhex2(sig_str), 64);
+  memcpy(pub_key, fromHexString(pub_key_str), 33);
+  memcpy(hash, fromHexString(hash_str), 32);
+  memcpy(computed_sig, fromHexString(sig_str), 64);
 
   int verified = ecdsa_verify_digest(curve, pub_key, computed_sig, hash);
   return verified;
@@ -141,7 +135,7 @@ int validateSignature() {
 
 bool SignDataHash(int json_data_start, int current_length, const char* data_str, char* pubkey_out, char* sig_out, char* hash_out)
 {
-  uint8_t seed[64] = {0};
+  //uint8_t seed[64] = {0};
   uint8_t hash[32] = {0};
   uint8_t priv_key[32] = {0};
   uint8_t pub_key[33] = {0};
@@ -149,13 +143,8 @@ bool SignDataHash(int json_data_start, int current_length, const char* data_str,
   HDNode node2;
   SHA256_CTX ctx;
   const ecdsa_curve *curve = &secp256k1;
-  
-  if( !g_mnemonic ){
-    return false;
-  }
-  mnemonic_to_seed(g_mnemonic, "TREZOR", seed, 0);
 
-  hdnode_from_seed( seed, SEED_SIZE, SECP256K1_NAME, &node2);
+  hdnode_from_seed( secret_seed, SEED_SIZE, SECP256K1_NAME, &node2);
   hdnode_fill_public_key(&node2);
   memcpy(priv_key, node2.private_key, 32);
   memcpy(pub_key, node2.public_key, 33);
