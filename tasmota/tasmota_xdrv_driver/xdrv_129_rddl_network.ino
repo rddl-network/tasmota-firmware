@@ -108,23 +108,30 @@ void getNotarizationMessage(){
   MqttShowSensor(false);
 }
 
+void storeKeyValuePair( char* key, char* value)
+{
+  BrREPLRun((char*)"import persist");
+  String key_string = key;
+  String value_string = value;
+  String cmd = String("persist.") + key + String("=\"") + value_string + String("\"");
+  //printf("store seed result: %s",  (char*)cmd.c_str());
+  BrREPLRun((char*)cmd.c_str());
+  BrREPLRun((char*)"persist.save()");
+  //printf("store seed result: %s",  seed_message);
+}
+
 void storeSeed()
 {
   uint8_t seed_message[SEED_SIZE*2] = {0};
   toHexString( (char*)seed_message, secret_seed, SEED_SIZE*2);
-  BrREPLRun("import persist");
-  String message = String("\"") +(const char*)seed_message + String("\"");
-  String cmd = String("persist.seed=") + message;
-  printf("store seed result: %s",  (char*)cmd.c_str());
-  BrREPLRun((char*)cmd.c_str());
-  BrREPLRun("persist.save()");
-  printf("store seed result: %s",  seed_message);
+  storeKeyValuePair( (char*)"seed", (char*) seed_message);
 }
 
-bool hasSeed(){
+bool hasKey(const char * key){
   char result [300]= {0};
-  BrREPLRun("import persist");
-  BrREPLRunRDDL("persist.has(\"seed\")", result );
+  BrREPLRun((char*)"import persist");
+  String cmd = String("persist.has(\"") + String(key) + String("\")");
+  BrREPLRunRDDL((char*)cmd.c_str(), result );
   if( strcmp( result,"true") == 0)
     return true;
   else 
@@ -132,17 +139,27 @@ bool hasSeed(){
 }
 bool g_readSeed = false;
 
+char* getValueForKey( const char* key, char* buffer )
+{
+  if( ! hasKey(key) )
+    return NULL;
+  String key_string = key;
+  String cmd = String("persist.find(\"") + key_string + String("\")");
+  BrREPLRun((char*)"import persist");
+  BrREPLRunRDDL((char*)cmd.c_str(), buffer );
+  ResponseAppend_P(PSTR("HAS Key: %s\n"), buffer);
+  return buffer;
+}
+
 uint8_t* readSeed()
 {
   if( g_readSeed )
     return secret_seed;
-  else if( ! hasSeed() )
-    return NULL;
-  
+
   char buffer[300] = {0};
-  BrREPLRun("import persist");
-  BrREPLRunRDDL("persist.find(\"seed\")", buffer );
-  ResponseAppend_P(PSTR("HAS SEED: %s\n"), buffer);
+  char* ret = getValueForKey( "seed", buffer);
+  if( ret == NULL )
+    return NULL;
 
   const uint8_t * seed = fromHexString(buffer);
   memset( secret_seed, 0, SEED_SIZE );
