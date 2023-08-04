@@ -43,9 +43,15 @@
 #include "curves.h"
 #include "ed25519.h"
 #include "base58.h"
+#include "planetmintgo.h"
 
 
 uint32_t counted_seconds = 0;
+
+uint8_t g_priv_key[32]= {0};
+uint8_t g_pub_key[33] = {0};
+char g_address[64] = {0};
+
 
 // Demo command line commands
 const char kDrvDemoCommands[] PROGMEM = "Drv|"  // Prefix
@@ -127,6 +133,28 @@ void storeSeed()
   //uint8_t seed_message[SEED_SIZE*2] = {0};
   //toHexString( (char*)seed_message, secret_seed, SEED_SIZE*2);
   storeKeyValuePair( (const char*)"seed", (const char*) secret_seed, SEED_SIZE);
+}
+#define PUB_KEY_SIZE 33
+#define ADDRESS_HASH_SIZE 20
+#define ADDRESS_TAIL 20
+
+void getPlntmntKeys(){
+  HDNode node;
+  readSeed();
+  hdnode_from_seed( secret_seed, SEED_SIZE, SECP256K1_NAME, &node);
+  hdnode_private_ckd_prime(&node, 44);
+  hdnode_private_ckd_prime(&node, 8680);
+  hdnode_private_ckd_prime(&node, 0);
+  hdnode_private_ckd(&node, 0);
+  hdnode_private_ckd(&node, 0);
+  hdnode_fill_public_key(&node);
+  memcpy(g_priv_key, node.private_key, 32);
+  memcpy(g_pub_key, node.public_key, PUB_KEY_SIZE);
+
+  
+  uint8_t address_bytes[ADDRESS_TAIL] = {0};
+  pubkey2address( g_pub_key, PUB_KEY_SIZE, address_bytes );
+  getAddressString( address_bytes, g_address);
 }
 
 bool hasKey(const char * key){
@@ -348,7 +376,62 @@ String registerCID(const char* cid){
   return jwt_token;
 }
 
-void sendNotarizationMessage(){
+void broadcast_TX( const char* tx_bytes ){
+  
+  HTTPClientLight http;
+  String uri = "http://192.168.0.136:1317/cosmos/tx/v1beta1/txs";
+  http.begin(uri);
+  http.addHeader("accept", "application/json");
+  http.addHeader("Content-Type", "application/json");
+  String payload = "{ \"tx_bytes\": \"";
+  payload = payload + tx_bytes + "\", \"mode\": \"BROADCAST_MODE_SYNC\" }";
+
+  int ret = http.POST( payload );
+  ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "respose code", ret);
+  //ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "respose code", ret);
+}
+
+void sendNotarizationMessage(const char* cid){
+  // get address 
+  getPlntmntKeys();
+  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "PLANETMINT ADDRESS", g_address);
+
+  // get account info from planetmint-go
+  HTTPClientLight http;
+
+  String uri = "http://192.168.0.136:1317/cosmos/auth/v1beta1/account_info/";
+  uri = uri + g_address;
+  http.begin(uri);
+  http.addHeader("Content-Type", "application/json");
+
+  int httpResponseCode = http.GET();
+   ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "NETWORK ACCOUNT", http.getString().c_str());
+
+  // // send cid asset message
+  Google__Protobuf__Any anyMsg = GOOGLE__PROTOBUF__ANY__INIT;
+
+  gnerateAnyCIDAttestMsgGeneric(& anyMsg, cid, g_priv_key, g_pub_key, g_address );
+
+  Cosmos__Base__V1beta1__Coin coin = COSMOS__BASE__V1BETA1__COIN__INIT;
+  coin.denom = "token";
+  coin.amount = "2";
+  
+  uint8_t* txbytes = NULL;
+  size_t tx_size = 0;
+  uint64_t sequence = 0;
+  char* chain_id = "planetmintgo";
+  uint64_t account_id = 9;
+  prepareTx( &anyMsg, &coin, g_priv_key, g_pub_key, 
+      sequence, chain_id, account_id, &txbytes, &tx_size);
+  free(anyMsg.value.data);
+  // char* tx_bytes_b64 = (char*) malloc( 1000 );
+  // char * p = bintob64( tx_bytes_b64, txbytes, tx_size);
+  // size_t length = p - tx_bytes_b64;
+  // ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "MSG SIZE", length);
+  // // ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "MESSAGE", tx_bytes_b64);
+  
+  broadcast_TX( "tx_bytes_b64" );
+  // free(tx_bytes_b64);
 
 }
 
@@ -367,7 +450,7 @@ void runRDDLNotarizationWorkflow(const char* data_str, size_t data_length){
   registerCID( cid_str );
  
   // notarize message vi planetmint
-  sendNotarizationMessage();
+  sendNotarizationMessage(cid_str);
 
   ResponseJsonEnd();
   free( (char*)cid_str );
