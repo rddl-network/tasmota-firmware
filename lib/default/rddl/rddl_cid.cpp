@@ -80,3 +80,7 @@ uint8_t* decode_cid_v1(const char* base32_cid) {
     // Return the multihash
     return multihash;
 }
+
+
+
+

@@ -1,19 +1,3 @@
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "base58.h"
-#include "base64_plntmnt.h"
-#include "hmac.h"
-#include "json-maker.h"
-#include "sha3.h"
-#include "bip32.h"
-#include "curves.h"
-#include "ed25519.h"
-
 #include "memzero.h"
 #include "planetmint.h"
 
@@ -579,15 +563,5 @@ bool planetmint_parse_json(char* json_tx, PLANETMINT_TX *tx) {
   }
   memcpy(tx->version, version, strlen(version));
 
-  return true;
-}
-
-
-bool getKeyFromSeed( const uint8_t* seed, uint8_t* priv_key, uint8_t* pub_key){
-  HDNode node;
-  hdnode_from_seed( seed, 64, ED25519_NAME, &node);
-  hdnode_fill_public_key(&node);
-  memcpy(priv_key, node.private_key, 32);
-  memcpy(pub_key, node.public_key, 33);
   return true;
 }

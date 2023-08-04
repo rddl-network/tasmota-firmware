@@ -1,4 +1,6 @@
-#pragma once
+#ifndef RDDL_H
+#define RDDL_H
+
 
 #define FROMHEX_MAXLEN 512
 
@@ -36,3 +38,5 @@ int validateSignature();
 bool getKeyFromSeed( const uint8_t* seed, uint8_t* priv_key, uint8_t* pub_key, const char* curve_name);
 
 bool SignDataHash(const char* data_str, size_t data_length, char* pubkey_out, char* sig_out, char* hash_out);
+
+#endif

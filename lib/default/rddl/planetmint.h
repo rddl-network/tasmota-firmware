@@ -1,4 +1,3 @@
-<<<<<<<< HEAD:lib/default/rddl/planetmint.h
 #ifndef _PLANETMINT_TX_H_
 #define _PLANETMINT_TX_H_
 #define PLANETMINT_VERSION "3.0"
@@ -28,12 +27,6 @@
 
 
 
-========
-#ifndef _BIGCHAIN_TX_H_
-#define _BIGCHAIN_TX_H_
-#define BDB_VERSION "3.0"
-#include "tiny-json.h"
->>>>>>>> development:tasmota/planetmint.h
 #define ASSET_MAX_SIZE 1024
 #define METADATA_MAX_SIZE 1024
 
@@ -241,11 +234,4 @@ void fulfill_tx(PLANETMINT_TX *tx, uint8_t *priv_key, uint8_t *pub_key, uint8_t 
   */
 void partial_fulfill_tx(PLANETMINT_TX *tx, uint8_t *priv_key, uint8_t *pub_key, uint8_t *json, uint16_t maxlen, uint8_t input_index);
 
-<<<<<<<< HEAD:lib/default/rddl/planetmint.h
 #endif // _PLANETMINT_TX_H_
-========
-bool getKeyFromSeed( const uint8_t* seed, uint8_t* priv_key, uint8_t* pub_key);
-
-
-#endif // _BIGCHAIN_TX_H_
->>>>>>>> development:tasmota/planetmint.h
