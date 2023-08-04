@@ -1,4 +1,4 @@
-#include <cstring>
+//#include <cstring>
 
 #include "sha2.h"
 #include "ripemd160.h"
