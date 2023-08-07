@@ -46,6 +46,8 @@
 #include "planetmintgo.h"
 
 
+#define PLANETMINT_API_URI "http://192.168.0.136:1317"
+
 uint32_t counted_seconds = 0;
 
 uint8_t g_priv_key[32]= {0};
@@ -179,7 +181,7 @@ char* getValueForKey( const char* key, char* buffer )
   BrREPLRunRDDL((char*)cmd.c_str(), buffer );
   const uint8_t * storageString = fromHexString(buffer);
   strcpy(buffer, (const char*) storageString );
-  ResponseAppend_P(PSTR("HAS Key: %s\n"), buffer);
+  //ResponseAppend_P(PSTR("HAS Key: %s\n"), buffer);
   return buffer;
 }
 
@@ -240,12 +242,12 @@ String getEdDSAChallengeCall( const char* public_key ){
     //start +14 to skip  {"challenge":"
     //end -2 to skip "}
     challenge = payload.substring(start+14, end-2);
-    ResponseAppend_P(PSTR("Payload received %s\n"), challenge.c_str());
+    //ResponseAppend_P(PSTR("Payload received %s\n"), challenge.c_str());
 
   }
   else {
     Serial.println("Error on HTTP request\n");
-    ResponseAppend_P(PSTR("Error on HTTPS request\n"));
+    //ResponseAppend_P(PSTR("Error on HTTPS request\n"));
   }
 
   http.end();
@@ -258,10 +260,10 @@ String getJWTTokenCall( const char* public_key, const unsigned char* signature){
   //char hexed_signature[200]={0};
 
   //toHexString( hexed_signature, (unsigned char*)signature, 68 );
-  ResponseAppend_P(PSTR("b58 signature: %s\n"), signature);
+  //ResponseAppend_P(PSTR("b58 signature: %s\n"), signature);
   String uri = "https://cid-resolver.rddl.io/auth/?public_key=";
   uri = uri + public_key + "&signature=" + (char *)signature;
-  ResponseAppend_P(PSTR("JWT URI: %s\n"), uri.c_str());
+  //ResponseAppend_P(PSTR("JWT URI: %s\n"), uri.c_str());
   http.begin(uri);
   http.addHeader("accept", "application/json");
 
@@ -278,12 +280,12 @@ String getJWTTokenCall( const char* public_key, const unsigned char* signature){
     //start +17 to skip  {"access_token":"
     //end -2 to skip "}
     jwt_token = payload.substring(start+17, end-1);
-    ResponseAppend_P(PSTR("Payload received JWT: %s\n"), jwt_token.c_str());
+    //ResponseAppend_P(PSTR("Payload received JWT: %s\n"), jwt_token.c_str());
 
   }
   else {
     Serial.println("Error on HTTP request");
-    ResponseAppend_P(PSTR("Error on HTTPS request\n"));
+    //ResponseAppend_P(PSTR("Error on HTTPS request\n"));
   }
 
   http.end();
@@ -316,12 +318,12 @@ String registerCID_call( const char* jwt_token, const char* url, const char* cid
     //start +14 to skip  {"challenge":"
     //end -2 to skip "}
     result = payload.substring(start, end);
-    ResponseAppend_P(PSTR("Payload received CID registration: %s\n"), result.c_str());
+    //ResponseAppend_P(PSTR("Payload received CID registration: %s\n"), result.c_str());
 
   }
   else {
     Serial.println("Error on HTTP request\n");
-    ResponseAppend_P(PSTR("Error on HTTPS request\n"));
+    //ResponseAppend_P(PSTR("Error on HTTPS request\n"));
   }
 
   http.end();
@@ -379,7 +381,8 @@ String registerCID(const char* cid){
 void broadcast_TX( const char* tx_bytes ){
   
   HTTPClientLight http;
-  String uri = "http://192.168.0.136:1317/cosmos/tx/v1beta1/txs";
+  String uri = "/cosmos/tx/v1beta1/txs";
+  uri = PLANETMINT_API_URI + uri;
   http.begin(uri);
   http.addHeader("accept", "application/json");
   http.addHeader("Content-Type", "application/json");
@@ -399,7 +402,8 @@ void sendNotarizationMessage(const char* cid){
   // get account info from planetmint-go
   HTTPClientLight http;
 
-  String uri = "http://192.168.0.136:1317/cosmos/auth/v1beta1/account_info/";
+  String uri = "/cosmos/auth/v1beta1/account_info/";
+  uri = PLANETMINT_API_URI + rui;
   uri = uri + g_address;
   http.begin(uri);
   http.addHeader("Content-Type", "application/json");
@@ -420,19 +424,18 @@ void sendNotarizationMessage(const char* cid){
   size_t tx_size = 0;
   uint64_t sequence = 0;
   char* chain_id = "planetmintgo";
-  uint64_t account_id = 9;
+  uint64_t account_id = 10;
   prepareTx( &anyMsg, &coin, g_priv_key, g_pub_key, 
       sequence, chain_id, account_id, &txbytes, &tx_size);
   free(anyMsg.value.data);
-  // char* tx_bytes_b64 = (char*) malloc( 1000 );
-  // char * p = bintob64( tx_bytes_b64, txbytes, tx_size);
-  // size_t length = p - tx_bytes_b64;
-  // ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "MSG SIZE", length);
-  // // ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "MESSAGE", tx_bytes_b64);
+  char* tx_bytes_b64 = (char*) malloc( 1000 );
+  char * p = bintob64( tx_bytes_b64, txbytes, tx_size);
+  size_t length = p - tx_bytes_b64;
+  ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "MSG SIZE", length);
+  // ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "MESSAGE", tx_bytes_b64);
   
-  broadcast_TX( "tx_bytes_b64" );
-  // free(tx_bytes_b64);
-
+  broadcast_TX( tx_bytes_b64 );
+  free(tx_bytes_b64);
 }
 
 void runRDDLNotarizationWorkflow(const char* data_str, size_t data_length){
@@ -440,8 +443,8 @@ void runRDDLNotarizationWorkflow(const char* data_str, size_t data_length){
 
   //compute CID
   const char* cid_str = (const char*) create_cid_v1_from_string( data_str );
-  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Data ", data_str);
-  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "CID ", cid_str);
+  //ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Data ", data_str);
+  //ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "CID ", cid_str);
   
   // store cid
   storeKeyValuePair( cid_str, data_str,0 );

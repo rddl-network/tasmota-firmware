@@ -1,4 +1,4 @@
-//#include <cstring>
+#include <string.h>
 
 #include "sha2.h"
 #include "ripemd160.h"
@@ -63,7 +63,7 @@ void prepareTx( Google__Protobuf__Any* anyMsg, Cosmos__Base__V1beta1__Coin* coin
 {
     Cosmos__Tx__V1beta1__TxBody body;
     cosmos__tx__v1beta1__tx_body__init(&body);
-    Google__Protobuf__Any messages[1] = {(const ProtobufCMessageDescriptor*)anyMsg};
+    Google__Protobuf__Any* messages[1] = {(Google__Protobuf__Any*)anyMsg};
     body.n_messages = 1;
     body.messages = (Google__Protobuf__Any**)messages;
     body.timeout_height = 0;
@@ -104,7 +104,7 @@ void prepareTx( Google__Protobuf__Any* anyMsg, Cosmos__Base__V1beta1__Coin* coin
     fee.n_amount = 1;
 
 
-    Cosmos__Tx__V1beta1__SignerInfo signer_infos[1] = {(const ProtobufCMessageDescriptor*)&signInfo};
+    Cosmos__Tx__V1beta1__SignerInfo* signer_infos[1] = {(Cosmos__Tx__V1beta1__SignerInfo*)&signInfo};
     Cosmos__Tx__V1beta1__AuthInfo auth;
     cosmos__tx__v1beta1__auth_info__init(&auth);
     auth.n_signer_infos = 1;
