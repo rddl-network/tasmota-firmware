@@ -1,4 +1,4 @@
-#include <string.h>
+#include <stdio.h>
 
 #include "sha2.h"
 #include "ripemd160.h"
@@ -8,6 +8,7 @@
 #include "ecdsa.h"
 #include "secp256k1.h"
 #include "segwit_addr.h"
+#include "tiny-json.h"
 
 
 #include "cosmos/crypto/secp256k1/keys.pb-c.h"
@@ -416,4 +417,55 @@ void attestMachine(uint8_t *priv_key, uint8_t *pub_key, char *public_address, ui
     free(pubkey.key.data);
     free(any_pub_key.value.data);
     //return tx_envelope;
+}
+
+bool get_account_info( const char* json_obj, int* account_id, int* sequence)
+{
+    unsigned int max_fields = 20;
+    json_t pool[max_fields];
+    
+    const json_t* response = json_create( json_obj, pool, max_fields);
+    
+    if ( response == NULL ) return false;
+    json_t const* info_field = json_getProperty( response, "info" );
+    if ( info_field == NULL ) return false;
+
+    char const* account_value = json_getPropertyValue( info_field, "account_number" );
+    char const* sequence_value = json_getPropertyValue( info_field, "sequence" );
+    if( !account_value || !sequence_value )
+        return false;
+
+    *account_id = atoi( account_value );
+    *sequence = atoi( sequence_value );
+    return true;
+}
+
+bool get_address_info_from_accounts( const char* json_obj, const char* address, int* account_id, int* sequence)
+{
+    unsigned int max_fields = 1000;
+    json_t pool[max_fields];
+    const json_t* response = json_create( json_obj, pool, max_fields);
+    
+    if ( response == NULL ) return false;
+    json_t const* accounts = json_getProperty( response, "accounts" );
+    if ( accounts == NULL ) return false;
+
+    json_t const* sib = json_getChild( accounts );
+    while( true )
+    {
+        char const* address_value = json_getPropertyValue( sib, "address" );
+        if(address_value && strcmp( address_value, address) == 0)
+        {
+            char const* account_value = json_getPropertyValue( sib, "account_number" );
+            char const* sequence_value = json_getPropertyValue( sib, "sequence" );
+            *account_id = atoi( account_value );
+            *sequence = atoi( sequence_value );
+            return true;
+        }
+        sib = json_getSibling( sib );
+        if( !sib )
+            break;
+
+    }
+    return false;   
 }

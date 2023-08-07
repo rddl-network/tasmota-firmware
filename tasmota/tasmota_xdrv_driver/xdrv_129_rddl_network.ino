@@ -394,46 +394,69 @@ void broadcast_TX( const char* tx_bytes ){
   //ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "respose code", ret);
 }
 
-void sendNotarizationMessage(const char* cid){
-  // get address 
-  getPlntmntKeys();
-  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "PLANETMINT ADDRESS", g_address);
-
+bool getAccountInfo( const char* account_address, uint64_t* account_id, uint64_t* sequence )
+{
   // get account info from planetmint-go
   HTTPClientLight http;
-
   String uri = "/cosmos/auth/v1beta1/account_info/";
-  uri = PLANETMINT_API_URI + rui;
+  uri = PLANETMINT_API_URI + uri;
   uri = uri + g_address;
   http.begin(uri);
   http.addHeader("Content-Type", "application/json");
 
   int httpResponseCode = http.GET();
-   ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "NETWORK ACCOUNT", http.getString().c_str());
+  int _account_id = 0;
+  int _sequence = 0;
+  int ret = get_account_info( http.getString().c_str() ,&_account_id, &_sequence );
+  if( ret == 0 )
+  {
 
+    uri = "/cosmos/auth/v1beta1/accounts";
+    uri = PLANETMINT_API_URI + uri;
+    http.begin(uri);
+    http.addHeader("Content-Type", "application/json");
+
+    int httpResponseCode = http.GET();
+    ret = get_address_info_from_accounts( http.getString().c_str(), account_address, &_account_id, &_sequence );
+    if( !ret )
+      return false;
+  }
+  *account_id = (uint64_t) _account_id;
+  *sequence = (uint64_t) _sequence;
+  return true;
+}
+
+void sendNotarizationMessage(const char* cid){
+  // get address 
+  getPlntmntKeys();
+
+  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "PLANETMINT ADDRESS", g_address);
+
+  uint64_t account_id = 0;
+  uint64_t sequence = 0;
+  bool ret = getAccountInfo( g_address, &account_id, &sequence );
+  if( !ret )
+  {
+    ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "ACCOUNT INFO ", "failed");
+    return;
+  }
   // // send cid asset message
   Google__Protobuf__Any anyMsg = GOOGLE__PROTOBUF__ANY__INIT;
-
   gnerateAnyCIDAttestMsgGeneric(& anyMsg, cid, g_priv_key, g_pub_key, g_address );
-
   Cosmos__Base__V1beta1__Coin coin = COSMOS__BASE__V1BETA1__COIN__INIT;
   coin.denom = "token";
   coin.amount = "2";
   
   uint8_t* txbytes = NULL;
   size_t tx_size = 0;
-  uint64_t sequence = 0;
   char* chain_id = "planetmintgo";
-  uint64_t account_id = 10;
   prepareTx( &anyMsg, &coin, g_priv_key, g_pub_key, 
       sequence, chain_id, account_id, &txbytes, &tx_size);
   free(anyMsg.value.data);
+
   char* tx_bytes_b64 = (char*) malloc( 1000 );
   char * p = bintob64( tx_bytes_b64, txbytes, tx_size);
-  size_t length = p - tx_bytes_b64;
-  ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "MSG SIZE", length);
-  // ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "MESSAGE", tx_bytes_b64);
-  
+
   broadcast_TX( tx_bytes_b64 );
   free(tx_bytes_b64);
 }
