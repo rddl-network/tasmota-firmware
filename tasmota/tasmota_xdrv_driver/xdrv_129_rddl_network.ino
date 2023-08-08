@@ -32,7 +32,7 @@
 
 #define DRV_DEMO_MAX_DRV_TEXT  16
 //#define RDDL_NETWORK_15_MINUTES_IN_MS  (15*60*1000)
-#define RDDL_NETWORK_NOTARIZATION_TIMER_IN_SECONDS (30)
+#define RDDL_NETWORK_NOTARIZATION_TIMER_IN_SECONDS (3*60)
 
 
 #include "planetmint.h"
@@ -543,11 +543,8 @@ void runRDDLNotarizationWorkflow(const char* data_str, size_t data_length){
   
 }
 
-
 void RDDLNotarize(){
   // create notarization message
-  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "RDDLNotarize CALL ", "insane");
-  return;
   Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS8_POWER "\":"));
   int start_position = ResponseLength();
   getNotarizationMessage();
@@ -563,7 +560,7 @@ void RDDLNetworkNotarizationScheduler(){
   if( counted_seconds >= RDDL_NETWORK_NOTARIZATION_TIMER_IN_SECONDS)
   {
     counted_seconds=0;
-    //RDDLNotarize();
+    RDDLNotarize();
   }
 }
 
