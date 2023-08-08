@@ -43,7 +43,13 @@
 #include "curves.h"
 #include "ed25519.h"
 #include "base58.h"
+
 #include "planetmintgo.h"
+#include "planetmintgo/machine/machine.pb-c.h"
+#include "cosmos/tx/v1beta1/tx.pb-c.h"
+#include "planetmintgo/machine/tx.pb-c.h"
+#include "planetmintgo/asset/tx.pb-c.h"
+#include "google/protobuf/any.pb-c.h"
 
 
 #define PLANETMINT_API_URI "http://192.168.0.136:1317"
@@ -136,6 +142,7 @@ void storeSeed()
   //toHexString( (char*)seed_message, secret_seed, SEED_SIZE*2);
   storeKeyValuePair( (const char*)"seed", (const char*) secret_seed, SEED_SIZE);
 }
+
 #define PUB_KEY_SIZE 33
 #define ADDRESS_HASH_SIZE 20
 #define ADDRESS_TAIL 20
@@ -169,6 +176,7 @@ bool hasKey(const char * key){
   else 
     return false;
 }
+
 bool g_readSeed = false;
 
 char* getValueForKey( const char* key, char* buffer )
@@ -378,7 +386,7 @@ String registerCID(const char* cid){
   return jwt_token;
 }
 
-void broadcast_TX( const char* tx_bytes ){
+int broadcast_TX( const char* tx_bytes ){
   
   HTTPClientLight http;
   String uri = "/cosmos/tx/v1beta1/txs";
@@ -392,7 +400,10 @@ void broadcast_TX( const char* tx_bytes ){
   int ret = http.POST( payload );
   ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "respose code", ret);
   //ResponseAppend_P(PSTR(",\"%s\":\"%u\"\n"), "respose code", ret);
+  return ret;
 }
+
+
 
 bool getAccountInfo( const char* account_address, uint64_t* account_id, uint64_t* sequence )
 {
@@ -426,49 +437,83 @@ bool getAccountInfo( const char* account_address, uint64_t* account_id, uint64_t
   return true;
 }
 
-void sendNotarizationMessage(const char* cid){
+
+int create_broadcast_tx( void* anyMsg, char* tokenAmount, bool first_tx )
+{
+
+ Google__Protobuf__Any* local_msg = (Google__Protobuf__Any*) anyMsg;
+  
   // get address 
   getPlntmntKeys();
-
-  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "PLANETMINT ADDRESS", g_address);
+  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Address", g_address);
 
   uint64_t account_id = 0;
   uint64_t sequence = 0;
   bool ret = getAccountInfo( g_address, &account_id, &sequence );
-  if( !ret )
+  if( !ret or (sequence == 0 && !first_tx) )
   {
     ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "ACCOUNT INFO ", "failed");
-    return;
+    return -2;
   }
-  // // send cid asset message
-  Google__Protobuf__Any anyMsg = GOOGLE__PROTOBUF__ANY__INIT;
-  gnerateAnyCIDAttestMsgGeneric(& anyMsg, cid, g_priv_key, g_pub_key, g_address );
+
   Cosmos__Base__V1beta1__Coin coin = COSMOS__BASE__V1BETA1__COIN__INIT;
   coin.denom = "token";
-  coin.amount = "2";
+  coin.amount = tokenAmount;
   
   uint8_t* txbytes = NULL;
   size_t tx_size = 0;
   char* chain_id = "planetmintgo";
-  prepareTx( &anyMsg, &coin, g_priv_key, g_pub_key, 
-      sequence, chain_id, account_id, &txbytes, &tx_size);
-  free(anyMsg.value.data);
+  prepareTx( local_msg, &coin, g_priv_key, g_pub_key, sequence, chain_id, account_id, &txbytes, &tx_size);
+  //free(anyMsg->value.data);
 
   char* tx_bytes_b64 = (char*) malloc( 1000 );
   char * p = bintob64( tx_bytes_b64, txbytes, tx_size);
 
-  broadcast_TX( tx_bytes_b64 );
+  int broadcast_return = broadcast_TX( tx_bytes_b64 );
   free(tx_bytes_b64);
+
+  return broadcast_return;
+}
+
+int registerMachine(){
+    Planetmintgo__Machine__Metadata metadata = PLANETMINTGO__MACHINE__METADATA__INIT;
+    metadata.additionaldatacid = "CID";
+    metadata.gps = "{\"Latitude\":\"-48.876667\",\"Longitude\":\"-123.393333\"}";
+    metadata.assetdefinition = "{\"Version\": \"0.1\"}";
+    metadata.device = "{\"Manufacturer\": \"RDDL\",\"Serial\":\"AdnT2uyt\"}";
+    const char *address = "cosmos19cl05ztgt8ey6v86hjjjn3thfmpu6q2xqmsuyx";
+    const char *pubKey = "AjKN6HiWucu1EBwzX0ACnkvomJiLRwq79oPxoLMY1zRw";
+
+    
+    Planetmintgo__Machine__Machine machine = PLANETMINTGO__MACHINE__MACHINE__INIT;
+    machine.name = "machine";
+    machine.ticker = "machine_ticker";
+    machine.domain = "lab.r3c.network";
+    machine.reissue = true;
+    machine.amount = 1000;
+    machine.precision = 8;
+    machine.issuerplanetmint = "02328de87896b9cbb5101c335f40029e4be898988b470abbf683f1a0b318d73470";
+    machine.issuerliquid = "xpub661MyMwAqRbcEigRSGNjzqsUbkoxRHTDYXDQ6o5kq6EQTSYuXxwD5zNbEXFjCG3hDmYZqCE4HFtcPAi3V3MW9tTYwqzLDUt9BmHv7fPcWaB";
+    machine.machineid = "02328de87896b9cbb5101c335f40029e4be898988b470abbf683f1a0b318d73470";
+    machine.metadata = &metadata;
+
+    Planetmintgo__Machine__MsgAttestMachine machineMsg = PLANETMINTGO__MACHINE__MSG_ATTEST_MACHINE__INIT;
+    machineMsg.creator = (char*)address;
+    machineMsg.machine = &machine;
+    Google__Protobuf__Any msg = GOOGLE__PROTOBUF__ANY__INIT;
+    generateAnyAttestMachineMsg( &msg, &machineMsg);
+    int ret = create_broadcast_tx( &msg, "2", true);
+    free( msg.value.data );
+    return ret;
 }
 
 void runRDDLNotarizationWorkflow(const char* data_str, size_t data_length){
+
   String signature = signRDDLNetworkMessageContent(data_str, data_length);
 
   //compute CID
   const char* cid_str = (const char*) create_cid_v1_from_string( data_str );
-  //ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Data ", data_str);
-  //ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "CID ", cid_str);
-  
+
   // store cid
   storeKeyValuePair( cid_str, data_str,0 );
 
@@ -476,11 +521,28 @@ void runRDDLNotarizationWorkflow(const char* data_str, size_t data_length){
   registerCID( cid_str );
  
   // notarize message vi planetmint
-  sendNotarizationMessage(cid_str);
+  getPlntmntKeys();
+
+  Google__Protobuf__Any anyMsg = GOOGLE__PROTOBUF__ANY__INIT;
+  gnerateAnyCIDAttestMsgGeneric(&anyMsg, cid_str, g_priv_key, g_pub_key, g_address );
+  int ret = create_broadcast_tx(&anyMsg, "2", false);
+  free( anyMsg.value.data);
 
   ResponseJsonEnd();
   free( (char*)cid_str );
+
+  if( ret == -2 )
+  {
+    ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Register", "Machine");
+    registerMachine();
+  }
+  else
+  {
+    ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Notarize", "CID Asset");
+  }
+  
 }
+
 
 void RDDLNotarize(){
   // create notarization message
