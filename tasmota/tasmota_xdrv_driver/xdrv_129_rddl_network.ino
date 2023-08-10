@@ -53,13 +53,20 @@
 
 
 #define PLANETMINT_API_URI "http://192.168.0.136:1317"
-
+#define EXT_PUB_KEY_SIZE 112
 uint32_t counted_seconds = 0;
 
-uint8_t g_priv_key[32]= {0};
-uint8_t g_pub_key[33] = {0};
+uint8_t g_priv_key[32+1]= {0};
+uint8_t g_pub_key[33+1] = {0};
 char g_address[64] = {0};
+char g_ext_pub_key_planetmint[EXT_PUB_KEY_SIZE+1] = {0};
+char g_ext_pub_key_liquid[EXT_PUB_KEY_SIZE+1] = {0};
 
+const char* getRDDLAddress() { return (const char*) g_address; }
+const char* getExtPubKeyLiquid() { return (const char*)g_ext_pub_key_liquid; }
+const char* getExtPubKeyPlanetmint() { return (const char*)g_ext_pub_key_planetmint; }
+
+bool g_readSeed = false;
 
 // Demo command line commands
 const char kDrvDemoCommands[] PROGMEM = "Drv|"  // Prefix
@@ -125,7 +132,8 @@ void storeKeyValuePair( const char* key, const char* value, size_t length)
   if( 0 == length )
     length = strlen(value);
   length = length * 2;
-  char* hexstring = (char*)malloc(length);
+  char* hexstring = (char*)malloc(length+1);
+  hexstring[length] = 0;
   toHexString( (char*)hexstring, (uint8_t*)value, length);
   BrREPLRun((char*)"import persist");
   String key_string = key;
@@ -138,9 +146,8 @@ void storeKeyValuePair( const char* key, const char* value, size_t length)
 
 void storeSeed()
 {
-  //uint8_t seed_message[SEED_SIZE*2] = {0};
-  //toHexString( (char*)seed_message, secret_seed, SEED_SIZE*2);
   storeKeyValuePair( (const char*)"seed", (const char*) secret_seed, SEED_SIZE);
+  g_readSeed = false;
 }
 
 #define PUB_KEY_SIZE 33
@@ -164,10 +171,13 @@ void getPlntmntKeys(){
   uint8_t address_bytes[ADDRESS_TAIL] = {0};
   pubkey2address( g_pub_key, PUB_KEY_SIZE, address_bytes );
   getAddressString( address_bytes, g_address);
+  uint32_t fingerprint = hdnode_fingerprint(&node);
+  int ret = hdnode_serialize_public( &node, fingerprint, PLANETMINT_PMPB, g_ext_pub_key_planetmint, EXT_PUB_KEY_SIZE);
+  int ret2 = hdnode_serialize_public( &node, fingerprint, VERSION_PUBLIC, g_ext_pub_key_liquid, EXT_PUB_KEY_SIZE);
 }
 
 bool hasKey(const char * key){
-  char result [300]= {0};
+  char result [10]= {0};
   BrREPLRun((char*)"import persist");
   String cmd = String("persist.has(\"") + String(key) + String("\")");
   BrREPLRunRDDL((char*)cmd.c_str(), result );
@@ -177,7 +187,7 @@ bool hasKey(const char * key){
     return false;
 }
 
-bool g_readSeed = false;
+
 
 char* getValueForKey( const char* key, char* buffer )
 {
@@ -189,7 +199,6 @@ char* getValueForKey( const char* key, char* buffer )
   BrREPLRunRDDL((char*)cmd.c_str(), buffer );
   const uint8_t * storageString = fromHexString(buffer);
   strcpy(buffer, (const char*) storageString );
-  //ResponseAppend_P(PSTR("HAS Key: %s\n"), buffer);
   return buffer;
 }
 
@@ -212,9 +221,9 @@ uint8_t* readSeed()
 }
 
 String signRDDLNetworkMessageContent( const char* data_str, size_t data_length){
-  char pubkey_out[68] = {0};
-  char sig_out[130] = {0};
-  char hash_out[66] = {0};
+  char pubkey_out[66+1] = {0};
+  char sig_out[128+1] = {0};
+  char hash_out[64+1] = {0};
   if( readSeed() != NULL )
   {
     SignDataHash( data_str, data_length,  pubkey_out, sig_out, hash_out);
@@ -352,10 +361,10 @@ String registerCID(const char* cid){
   char* planetmint_key = (char*) pub_key +1;
   
   bool ret = b58enc((char*)b58_pub_key, &b58_size, planetmint_key, 32);
-  if( ret == true )
-    ResponseAppend_P(PSTR("B58 encoding: %u - %s\n"), b58_size, b58_pub_key);
-  else
-    ResponseAppend_P(PSTR("B58 encoding: failed\n"));
+  // if( ret == true )
+  //   ResponseAppend_P(PSTR("B58 encoding: %u - %s\n"), b58_size, b58_pub_key);
+  // else
+  //   ResponseAppend_P(PSTR("B58 encoding: failed\n"));
 
   String challenge = getEdDSAChallengeCall((const char *)b58_pub_key);
 
@@ -365,9 +374,9 @@ String registerCID(const char* cid){
   sha256_Update(&ctx, (const uint8_t*)challenge.c_str(), challenge.length());
   sha256_Final(&ctx, hash);
 
-  char hexbuf[68]={0};
+  char hexbuf[67]={0};
   toHexString( hexbuf,(uint8_t*)hash, 66 );
-  ResponseAppend_P(PSTR("HASH: %s\n"), hexbuf);
+  //ResponseAppend_P(PSTR("HASH: %s\n"), hexbuf);
 
   //sign EdDSA challenge
   ed25519_sign( (const unsigned char*)hash, SHA256_DIGEST_LENGTH, (const unsigned char*)priv_key,(const unsigned char*)planetmint_key, signature);
@@ -418,20 +427,21 @@ bool getAccountInfo( const char* account_address, uint64_t* account_id, uint64_t
   int httpResponseCode = http.GET();
   int _account_id = 0;
   int _sequence = 0;
-  int ret = get_account_info( http.getString().c_str() ,&_account_id, &_sequence );
-  if( ret == 0 )
-  {
+  bool ret = get_account_info( http.getString().c_str() ,&_account_id, &_sequence );
+  if( !ret )
+    return false;
+  // {
 
-    uri = "/cosmos/auth/v1beta1/accounts";
-    uri = PLANETMINT_API_URI + uri;
-    http.begin(uri);
-    http.addHeader("Content-Type", "application/json");
+  //   uri = "/cosmos/auth/v1beta1/accounts";
+  //   uri = PLANETMINT_API_URI + uri;
+  //   http.begin(uri);
+  //   http.addHeader("Content-Type", "application/json");
 
-    int httpResponseCode = http.GET();
-    ret = get_address_info_from_accounts( http.getString().c_str(), account_address, &_account_id, &_sequence );
-    if( !ret )
-      return false;
-  }
+  //   int httpResponseCode = http.GET();
+  //   ret = get_address_info_from_accounts( http.getString().c_str(), account_address, &_account_id, &_sequence );
+  //   if( !ret )
+  //     return false;
+  // }
   *account_id = (uint64_t) _account_id;
   *sequence = (uint64_t) _sequence;
   return true;
@@ -445,15 +455,18 @@ int create_broadcast_tx( void* anyMsg, char* tokenAmount, bool first_tx )
   
   // get address 
   getPlntmntKeys();
-  ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Address", g_address);
 
   uint64_t account_id = 0;
   uint64_t sequence = 0;
   bool ret = getAccountInfo( g_address, &account_id, &sequence );
-  if( !ret or (sequence == 0 && !first_tx) )
+  if( !ret )
   {
-    ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "ACCOUNT INFO ", "failed");
-    return -2;
+    if( !first_tx )
+      return -2;
+
+    char buffer[10] = {0};
+    char* paccountid = getValueForKey("accountid", buffer);
+    account_id = (uint64_t) atoi( (const char*) buffer);
   }
 
   Cosmos__Base__V1beta1__Coin coin = COSMOS__BASE__V1BETA1__COIN__INIT;
@@ -476,29 +489,29 @@ int create_broadcast_tx( void* anyMsg, char* tokenAmount, bool first_tx )
 }
 
 int registerMachine(){
+    char hexpubkey[66+1] = {0};
+    toHexString( hexpubkey, g_pub_key, 66);
+
     Planetmintgo__Machine__Metadata metadata = PLANETMINTGO__MACHINE__METADATA__INIT;
-    metadata.additionaldatacid = "CID";
+    metadata.additionaldatacid = "";
     metadata.gps = "{\"Latitude\":\"-48.876667\",\"Longitude\":\"-123.393333\"}";
     metadata.assetdefinition = "{\"Version\": \"0.1\"}";
     metadata.device = "{\"Manufacturer\": \"RDDL\",\"Serial\":\"AdnT2uyt\"}";
-    const char *address = "cosmos19cl05ztgt8ey6v86hjjjn3thfmpu6q2xqmsuyx";
-    const char *pubKey = "AjKN6HiWucu1EBwzX0ACnkvomJiLRwq79oPxoLMY1zRw";
 
-    
     Planetmintgo__Machine__Machine machine = PLANETMINTGO__MACHINE__MACHINE__INIT;
     machine.name = "machine";
     machine.ticker = "machine_ticker";
     machine.domain = "lab.r3c.network";
-    machine.reissue = true;
-    machine.amount = 1000;
+    machine.reissue = false;
+    machine.amount = 1;
     machine.precision = 8;
-    machine.issuerplanetmint = "02328de87896b9cbb5101c335f40029e4be898988b470abbf683f1a0b318d73470";
-    machine.issuerliquid = "xpub661MyMwAqRbcEigRSGNjzqsUbkoxRHTDYXDQ6o5kq6EQTSYuXxwD5zNbEXFjCG3hDmYZqCE4HFtcPAi3V3MW9tTYwqzLDUt9BmHv7fPcWaB";
-    machine.machineid = "02328de87896b9cbb5101c335f40029e4be898988b470abbf683f1a0b318d73470";
+    machine.issuerplanetmint = g_ext_pub_key_planetmint;
+    machine.issuerliquid = g_ext_pub_key_liquid;
+    machine.machineid = hexpubkey;
     machine.metadata = &metadata;
 
     Planetmintgo__Machine__MsgAttestMachine machineMsg = PLANETMINTGO__MACHINE__MSG_ATTEST_MACHINE__INIT;
-    machineMsg.creator = (char*)address;
+    machineMsg.creator = (char*)g_address;
     machineMsg.machine = &machine;
     Google__Protobuf__Any msg = GOOGLE__PROTOBUF__ANY__INIT;
     generateAnyAttestMachineMsg( &msg, &machineMsg);
@@ -533,12 +546,12 @@ void runRDDLNotarizationWorkflow(const char* data_str, size_t data_length){
 
   if( ret == -2 )
   {
-    ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Register", "Machine");
+    Serial.println("Register: Machine\n");
     registerMachine();
   }
   else
   {
-    ResponseAppend_P(PSTR(",\"%s\":\"%s\"\n"), "Notarize", "CID Asset");
+    Serial.println("Notarize: CID Asset\n");
   }
   
 }

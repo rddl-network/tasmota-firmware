@@ -14,6 +14,9 @@ extern "C" {
 #include "cosmos/base/v1beta1/coin.pb-c.h"
 
 
+#define PLANETMINT_PMPB 0x03E14247
+#define PLANETMINT_PMPR 0x03E142B0
+
 bool get_account_info( const char* json_obj, int* account_id, int* sequence );
 bool get_address_info_from_accounts( const char* json_obj, const char* address, int* account_id, int* sequence );
 
@@ -26,7 +29,6 @@ void gnerateAnyCIDAttestMsgGeneric( Google__Protobuf__Any* anyMsg, const char* c
         char *public_address );
 
 void generateAnyAttestMachineMsg(Google__Protobuf__Any* anyMsg, Planetmintgo__Machine__MsgAttestMachine* machineMsg);
-//void generateAnyAttestMachineMsg(Google__Protobuf__Any* anyMsg, char *public_address);
 
 void prepareTx( Google__Protobuf__Any* anyMsg, 
         Cosmos__Base__V1beta1__Coin* coin,
